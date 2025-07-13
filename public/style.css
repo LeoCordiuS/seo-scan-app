@@ -214,6 +214,86 @@ button[type="submit"]:hover {
 .card.warning ul li::before { color: #ffc107; }
 .card.bad ul li::before { color: #dc3545; }
 
+.properties-table {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 0.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.property-row {
+    display: contents;
+}
+
+.property-name {
+    font-weight: bold;
+    padding: 0.5rem;
+    background-color: #f8f8f8;
+    border-bottom: 1px solid #eee;
+}
+
+.property-value {
+    padding: 0.5rem;
+    border-bottom: 1px solid #eee;
+    position: relative;
+    cursor: help; /* Indicate that it's hoverable */
+}
+
+.property-value .property-tooltip {
+    visibility: hidden;
+    width: 200px;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%; /* Position the tooltip above the text */
+    left: 50%;
+    margin-left: -100px; /* Use half the width to center */
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.property-value:hover .property-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+.property-value .property-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%; /* At the bottom of the tooltip */
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #555 transparent transparent transparent;
+}
+
+.properties-table {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 0.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.property-row {
+    display: contents;
+}
+
+.property-name {
+    font-weight: bold;
+    padding: 0.5rem;
+    background-color: #f8f8f8;
+    border-bottom: 1px solid #eee;
+}
+
 .preview {
     padding: 1.5rem;
     border: 1px solid #e0e0e0;

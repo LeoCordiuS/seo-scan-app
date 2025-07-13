@@ -44,6 +44,7 @@ function renderResults(data, url) {
     tabs.feedback.appendChild(feedbackContent);
     tabs.google.appendChild(googlePreviewContent);
     tabs.social.appendChild(socialPreviewContent);
+    tabs.properties.appendChild(createPropertiesContent(data));
 
     resultsContainer.appendChild(tabs.nav);
     resultsContainer.appendChild(tabs.contentContainer);
@@ -164,9 +165,58 @@ function createTabs() {
         google: createTab('Google Preview', nav, contentContainer),
         social: createTab('Social Preview', nav, contentContainer),
         feedback: createTab('Feedback', nav, contentContainer),
+        properties: createTab('Properties', nav, contentContainer),
     };
 
     return tabs;
+}
+
+function createPropertiesContent(data) {
+    const container = document.createElement('div');
+    container.className = 'properties-table';
+
+    const properties = [
+        { name: 'Title', value: data.title, description: 'The title of the page, displayed in browser tabs and search results.' },
+        { name: 'Description', value: data.description, description: 'A brief summary of the page content, often shown in search results.' },
+        { name: 'Favicon', value: data.favicon, description: 'The small icon displayed in browser tabs and bookmarks.' },
+        { name: 'Open Graph Title', value: data.ogTitle, description: 'The title used when sharing the page on social media platforms like Facebook.' },
+        { name: 'Open Graph Description', value: data.ogDescription, description: 'The description used when sharing the page on social media.' },
+        { name: 'Open Graph Image', value: data.ogImage, description: 'The image displayed when sharing the page on social media.' },
+        { name: 'Twitter Card', value: data.twitterCard, description: 'The type of Twitter card to use (e.g., summary, summary_large_image).', },
+        { name: 'Twitter Title', value: data.twitterTitle, description: 'The title used when sharing the page on Twitter.' },
+        { name: 'Twitter Description', value: data.twitterDescription, description: 'The description used when sharing the page on Twitter.' },
+        { name: 'Twitter Image', value: data.twitterImage, description: 'The image displayed when sharing the page on Twitter.' },
+        { name: 'H1 Tags', value: data.h1, description: 'The number of H1 heading tags on the page. Ideally, there should be only one.' },
+        { name: 'Images with Alt', value: data.alt_tags.with_alt, description: 'The number of images with descriptive alt attributes, important for accessibility and SEO.' },
+        { name: 'Images without Alt', value: data.alt_tags.without_alt, description: 'The number of images missing alt attributes. These should be added for accessibility and SEO.' },
+        { name: 'Canonical URL', value: data.canonical, description: 'Specifies the preferred version of a web page to search engines, preventing duplicate content issues.' },
+        { name: 'Viewport Meta Tag', value: data.viewport, description: 'Ensures the page is responsive and renders correctly across different devices.' },
+    ];
+
+    properties.forEach(prop => {
+        const row = document.createElement('div');
+        row.className = 'property-row';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'property-name';
+        nameSpan.textContent = prop.name + ':';
+        row.appendChild(nameSpan);
+
+        const valueSpan = document.createElement('span');
+        valueSpan.className = 'property-value';
+        valueSpan.textContent = prop.value || 'N/A';
+
+        const tooltipSpan = document.createElement('span');
+        tooltipSpan.className = 'property-tooltip';
+        tooltipSpan.textContent = prop.description;
+        valueSpan.appendChild(tooltipSpan);
+
+        row.appendChild(valueSpan);
+
+        container.appendChild(row);
+    });
+
+    return container;
 }
 
 function createTab(name, nav, contentContainer) {
