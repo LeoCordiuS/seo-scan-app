@@ -1,41 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SEO Scan</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>SEO Scan</h1>
-        <form id="seo-form">
-            <input type="text" id="url-input" placeholder="Enter a URL" required>
-            <button type="submit">Scan</button>
-        </form>
-        <div id="loader"></div>
-        <div id="summary-container" style="display: none;">
-            <div id="score-chart-container">
-                <canvas id="seo-score-chart"></canvas>
-            </div>
-            <div id="issue-cards">
-                <div class="card good">
-                    <h4>Good</h4>
-                    <ul id="good-issues"></ul>
-                </div>
-                <div class="card warning">
-                    <h4>Warning</h4>
-                    <ul id="warning-issues"></ul>
-                </div>
-                <div class="card bad">
-                    <h4>Bad</h4>
-                    <ul id="bad-issues"></ul>
-                </div>
-            </div>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="description"
+            content="Analyze SEO meta tags and get insights about your website's search engine optimization"
+        />
+        <title>SEO Scan - Website SEO Analysis Tool</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>SEO Scan</h1>
+                <p>Analyze your website's SEO performance and get actionable insights</p>
+            </header>
+
+            <main>
+                <section class="scan-section">
+                    <form id="seo-form" role="form">
+                        <label for="url-input" class="visually-hidden">Enter website URL to analyze</label>
+                        <input
+                            type="text"
+                            id="url-input"
+                            placeholder="Enter a URL (e.g., example.com)"
+                            required
+                            aria-describedby="url-help"
+                        />
+                        <button type="submit">Scan</button>
+                    </form>
+                    <div id="url-help" class="help-text">Enter a website URL to analyze its SEO performance</div>
+                </section>
+
+                <div id="loader" aria-hidden="true"></div>
+
+                <section id="summary-container" style="display: none" aria-labelledby="summary-heading">
+                    <h2 id="summary-heading" class="visually-hidden">SEO Analysis Summary</h2>
+                    <div id="score-chart-container">
+                        <canvas id="seo-score-chart" aria-label="SEO Score Chart"></canvas>
+                    </div>
+                    <div id="issue-cards">
+                        <div class="card good">
+                            <h3>Good</h3>
+                            <ul id="good-issues"></ul>
+                        </div>
+                        <div class="card warning">
+                            <h3>Warning</h3>
+                            <ul id="warning-issues"></ul>
+                        </div>
+                        <div class="card bad">
+                            <h3>Bad</h3>
+                            <ul id="bad-issues"></ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="results-container" aria-labelledby="results-heading">
+                    <h2 id="results-heading" class="visually-hidden">Detailed SEO Analysis Results</h2>
+                </section>
+            </main>
         </div>
-        <div id="results-container"></div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="script.js"></script>
-</body>
+
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="config.js"></script>
+        <script src="feedback.js"></script>
+        <script src="script.js"></script>
+    </body>
 </html>

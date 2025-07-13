@@ -1,423 +1,508 @@
-const form = document.getElementById('seo-form');
-const urlInput = document.getElementById('url-input');
-const resultsContainer = document.getElementById('results-container');
-const summaryContainer = document.getElementById('summary-container');
-const loader = document.getElementById('loader');
+// Main SEO Scan App Script
 
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const url = urlInput.value;
-
-    if (!url) {
-        return;
+// Wait for all dependencies to load
+document.addEventListener("DOMContentLoaded", function () {
+    // Function to check if dependencies are loaded
+    function checkDependencies() {
+        return (
+            window.SeoScanConfig &&
+            window.SeoFeedback &&
+            window.SeoScanConfig.Utils &&
+            window.SeoScanConfig.ERROR_MESSAGES
+        );
     }
 
-    resultsContainer.innerHTML = '';
-    summaryContainer.style.display = 'none';
-    loader.style.display = 'block';
+    // Wait for dependencies with retry mechanism
+    function initializeApp() {
+        if (checkDependencies()) {
+            const { Utils, ERROR_MESSAGES, SEO_LIMITS } = window.SeoScanConfig;
+            const { generateSeoFeedback } = window.SeoFeedback;
 
-    try {
-        const response = await fetch(`/api/seo-data?url=${encodeURIComponent(url)}`);
-        const data = await response.json();
-
-        if (response.ok) {
-            renderResults(data, url);
+            // Initialize the app
+            setupApp(Utils, ERROR_MESSAGES, SEO_LIMITS, generateSeoFeedback);
         } else {
-            renderError(data.error);
+            console.warn("Dependencies not ready, retrying...");
+            setTimeout(initializeApp, 100);
         }
-    } catch (error) {
-        renderError('Failed to fetch data');
-    } finally {
-        loader.style.display = 'none';
     }
-});
 
-function renderResults(data, url) {
-    resultsContainer.innerHTML = '';
-    summaryContainer.style.display = 'block';
+    // Start initialization
+    initializeApp();
 
-    const tabs = createTabs();
-    const feedbackContent = createFeedbackContent(data);
-    const googlePreviewContent = createGooglePreviewContent(data, url);
-    const socialPreviewContent = createSocialPreviewContent(data);
+    function setupApp(Utils, ERROR_MESSAGES, SEO_LIMITS, generateSeoFeedback) {
+        // DOM elements
+        const form = document.getElementById("seo-form");
+        const urlInput = document.getElementById("url-input");
+        const resultsContainer = document.getElementById("results-container");
+        const summaryContainer = document.getElementById("summary-container");
+        const loader = document.getElementById("loader");
 
-    tabs.feedback.appendChild(feedbackContent);
-    tabs.google.appendChild(googlePreviewContent);
-    tabs.social.appendChild(socialPreviewContent);
-    tabs.properties.appendChild(createPropertiesContent(data));
+        // Chart instance
+        let seoScoreChartInstance = null;
 
-    resultsContainer.appendChild(tabs.nav);
-    resultsContainer.appendChild(tabs.contentContainer);
+        // Form submission handler
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const url = urlInput.value.trim();
 
-    // Activate the first tab
-    tabs.nav.querySelector('button').classList.add('active');
-    tabs.google.classList.add('active');
-
-    renderSummary(data);
-}
-
-function renderSummary(data) {
-    const feedback = getSeoFeedback(data);
-    const score = calculateSeoScore(feedback);
-
-    renderScoreChart(score);
-
-    const goodIssues = document.getElementById('good-issues');
-    const warningIssues = document.getElementById('warning-issues');
-    const badIssues = document.getElementById('bad-issues');
-
-    goodIssues.innerHTML = '';
-    warningIssues.innerHTML = '';
-    badIssues.innerHTML = '';
-
-    feedback.forEach(item => {
-        const li = document.createElement('li');
-        li.textContent = item.title;
-        if (item.type === 'good') {
-            goodIssues.appendChild(li);
-        } else if (item.type === 'warning') {
-            warningIssues.appendChild(li);
-        } else {
-            badIssues.appendChild(li);
-        }
-    });
-}
-
-function renderScoreChart(score) {
-    const ctx = document.getElementById('seo-score-chart').getContext('2d');
-    const scoreColor = score >= 70 ? '#28a745' : (score >= 40 ? '#ffc107' : '#dc3545');
-
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            datasets: [{
-                data: [score, 100 - score],
-                backgroundColor: [scoreColor, '#e0e0e0'],
-                borderWidth: 0,
-            }],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '80%',
-            plugins: {
-                tooltip: {
-                    enabled: false,
-                },
-                legend: {
-                    display: false,
-                },
-            },
-            elements: {
-                arc: {
-                    borderWidth: 0,
-                },
-            },
-            animation: {
-                animateRotate: true,
-                animateScale: true,
-            },
-        },
-        plugins: [{
-            id: 'textCenter',
-            beforeDraw: function(chart) {
-                const width = chart.width,
-                      height = chart.height,
-                      ctx = chart.ctx;
-
-                ctx.restore();
-                const fontSize = (height / 114).toFixed(2);
-                ctx.font = `bold ${fontSize}em sans-serif`;
-                ctx.textBaseline = 'middle';
-
-                const text = `${score}%`;
-                const textX = Math.round((width - ctx.measureText(text).width) / 2);
-                const textY = height / 2;
-
-                ctx.fillStyle = '#333';
-                ctx.fillText(text, textX, textY);
-                ctx.save();
+            if (!url) {
+                showError(ERROR_MESSAGES.EMPTY_URL);
+                return;
             }
-        }]
-    });
-}
 
-function calculateSeoScore(feedback) {
-    const total = feedback.length;
-    const good = feedback.filter(item => item.type === 'good').length;
-    const warning = feedback.filter(item => item.type === 'warning').length;
-    const bad = feedback.filter(item => item.type === 'bad').length;
+            // Basic URL validation
+            if (!Utils.isValidUrl(url)) {
+                showError(ERROR_MESSAGES.INVALID_URL);
+                return;
+            }
 
-    const score = Math.round(((good + warning * 0.5) / total) * 100);
-    return score;
-}
+            // Reset UI
+            resetUI();
+            showLoader();
 
-function createTabs() {
-    const nav = document.createElement('div');
-    nav.className = 'tabs';
+            try {
+                const response = await fetch(`/api/seo-data?url=${encodeURIComponent(url)}`);
+                const data = await response.json();
 
-    const contentContainer = document.createElement('div');
-    contentContainer.className = 'tab-content';
+                if (response.ok) {
+                    renderResults(data, url);
+                } else {
+                    showError(data.error || ERROR_MESSAGES.UNKNOWN_ERROR);
+                }
+            } catch (error) {
+                showError(`${ERROR_MESSAGES.NETWORK_ERROR}: ${error.message}`);
+            } finally {
+                hideLoader();
+            }
+        });
 
-    const tabs = {
-        nav,
-        contentContainer,
-        google: createTab('Google Preview', nav, contentContainer),
-        social: createTab('Social Preview', nav, contentContainer),
-        feedback: createTab('Feedback', nav, contentContainer),
-        properties: createTab('Properties', nav, contentContainer),
-    };
-
-    return tabs;
-}
-
-function createPropertiesContent(data) {
-    const container = document.createElement('div');
-    container.className = 'properties-table';
-
-    const properties = [
-        { name: 'Title', value: data.title, description: 'The title of the page, displayed in browser tabs and search results.' },
-        { name: 'Description', value: data.description, description: 'A brief summary of the page content, often shown in search results.' },
-        { name: 'Favicon', value: data.favicon, description: 'The small icon displayed in browser tabs and bookmarks.' },
-        { name: 'Open Graph Title', value: data.ogTitle, description: 'The title used when sharing the page on social media platforms like Facebook.' },
-        { name: 'Open Graph Description', value: data.ogDescription, description: 'The description used when sharing the page on social media.' },
-        { name: 'Open Graph Image', value: data.ogImage, description: 'The image displayed when sharing the page on social media.' },
-        { name: 'Twitter Card', value: data.twitterCard, description: 'The type of Twitter card to use (e.g., summary, summary_large_image).', },
-        { name: 'Twitter Title', value: data.twitterTitle, description: 'The title used when sharing the page on Twitter.' },
-        { name: 'Twitter Description', value: data.twitterDescription, description: 'The description used when sharing the page on Twitter.' },
-        { name: 'Twitter Image', value: data.twitterImage, description: 'The image displayed when sharing the page on Twitter.' },
-        { name: 'H1 Tags', value: data.h1, description: 'The number of H1 heading tags on the page. Ideally, there should be only one.' },
-        { name: 'Images with Alt', value: data.alt_tags.with_alt, description: 'The number of images with descriptive alt attributes, important for accessibility and SEO.' },
-        { name: 'Images without Alt', value: data.alt_tags.without_alt, description: 'The number of images missing alt attributes. These should be added for accessibility and SEO.' },
-        { name: 'Canonical URL', value: data.canonical, description: 'Specifies the preferred version of a web page to search engines, preventing duplicate content issues.' },
-        { name: 'Viewport Meta Tag', value: data.viewport, description: 'Ensures the page is responsive and renders correctly across different devices.' },
-    ];
-
-    properties.forEach(prop => {
-        const row = document.createElement('div');
-        row.className = 'property-row';
-
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'property-name';
-        nameSpan.textContent = prop.name + ':';
-        row.appendChild(nameSpan);
-
-        const valueSpan = document.createElement('span');
-        valueSpan.className = 'property-value';
-        valueSpan.textContent = prop.value || 'N/A';
-
-        const tooltipSpan = document.createElement('span');
-        tooltipSpan.className = 'property-tooltip';
-        tooltipSpan.textContent = prop.description;
-        valueSpan.appendChild(tooltipSpan);
-
-        row.appendChild(valueSpan);
-
-        container.appendChild(row);
-    });
-
-    return container;
-}
-
-function createTab(name, nav, contentContainer) {
-    const button = document.createElement('button');
-    button.textContent = name;
-    nav.appendChild(button);
-
-    const content = document.createElement('div');
-    content.id = name.toLowerCase().replace(' ', '-');
-    contentContainer.appendChild(content);
-
-    button.addEventListener('click', () => {
-        nav.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-        contentContainer.querySelectorAll('div').forEach(c => c.classList.remove('active'));
-        button.classList.add('active');
-        content.classList.add('active');
-    });
-
-    return content;
-}
-
-function createFeedbackContent(data) {
-    const container = document.createElement('div');
-    const feedback = getSeoFeedback(data);
-
-    feedback.forEach(item => {
-        const card = document.createElement('div');
-        card.className = `feedback-card ${item.type}`;
-
-        const title = document.createElement('h4');
-        title.textContent = item.title;
-        card.appendChild(title);
-
-        const description = document.createElement('p');
-        description.textContent = item.description;
-        card.appendChild(description);
-
-        if (item.recommendation) {
-            const recommendation = document.createElement('p');
-            recommendation.className = 'recommendation';
-            recommendation.textContent = `Recommendation: ${item.recommendation}`;
-            card.appendChild(recommendation);
+        // UI helper functions
+        function resetUI() {
+            resultsContainer.innerHTML = "";
+            summaryContainer.style.display = "none";
         }
 
-        container.appendChild(card);
-    });
+        function showLoader() {
+            loader.style.display = "block";
+        }
 
-    return container;
-}
+        function hideLoader() {
+            loader.style.display = "none";
+        }
 
-function createGooglePreviewContent(data, url) {
-    const container = document.createElement('div');
-    container.className = 'preview google-preview';
+        function showError(message) {
+            resultsContainer.innerHTML = `<p class="error">Error: ${message}</p>`;
+            summaryContainer.style.display = "none";
+        }
 
-    if (data.favicon) {
-        const favicon = document.createElement('img');
-        favicon.src = data.favicon;
-        favicon.className = 'favicon';
-        favicon.alt = 'Favicon';
-        container.appendChild(favicon);
-    }
+        function renderResults(data, url) {
+            resultsContainer.innerHTML = "";
+            summaryContainer.style.display = "block";
 
-    const title = document.createElement('p');
-    title.className = 'title';
-    title.textContent = data.title || 'No Title';
-    container.appendChild(title);
+            const tabs = createTabs();
+            const feedbackContent = createFeedbackContent(data);
+            const googlePreviewContent = createGooglePreviewContent(data, url);
+            const socialPreviewContent = createSocialPreviewContent(data);
 
-    const link = document.createElement('p');
-    link.className = 'link';
-    link.textContent = url;
-    container.appendChild(link);
+            tabs.feedback.appendChild(feedbackContent);
+            tabs.google.appendChild(googlePreviewContent);
+            tabs.social.appendChild(socialPreviewContent);
+            tabs.properties.appendChild(createPropertiesContent(data));
 
-    const description = document.createElement('p');
-    description.className = 'description';
-    description.textContent = data.description || 'No Description';
-    container.appendChild(description);
+            resultsContainer.appendChild(tabs.nav);
+            resultsContainer.appendChild(tabs.contentContainer);
 
-    return container;
-}
+            // Activate the first tab (Google Preview)
+            const firstButton = tabs.nav.querySelector('button[data-tab="google-preview"]');
+            if (firstButton) {
+                activateTab(firstButton, tabs.google, tabs.nav, tabs.contentContainer);
+            }
 
-function createSocialPreviewContent(data) {
-    const container = document.createElement('div');
-    container.className = 'preview social-preview';
+            renderSummary(data);
+        }
 
-    const image = document.createElement('div');
-    image.className = 'image';
-    image.style.backgroundImage = `url(${data.ogImage || ''})`;
-    container.appendChild(image);
+        function renderSummary(data) {
+            const feedback = generateSeoFeedback(data);
+            const score = Utils.calculateSeoScore(feedback);
 
-    const content = document.createElement('div');
-    content.className = 'content';
+            renderScoreChart(score);
 
-    const title = document.createElement('p');
-    title.className = 'title';
-    title.textContent = data.ogTitle || data.title || 'No Title';
-    content.appendChild(title);
+            const goodIssues = document.getElementById("good-issues");
+            const warningIssues = document.getElementById("warning-issues");
+            const badIssues = document.getElementById("bad-issues");
 
-    const description = document.createElement('p');
-    description.className = 'description';
-    description.textContent = data.ogDescription || data.description || 'No Description';
-    content.appendChild(description);
+            goodIssues.innerHTML = "";
+            warningIssues.innerHTML = "";
+            badIssues.innerHTML = "";
 
-    container.appendChild(content);
-    return container;
-}
+            feedback.forEach((item) => {
+                const li = Utils.createElement("li", "", item.title);
 
-function getSeoFeedback(data) {
-    const feedback = [];
+                if (item.type === "good") {
+                    goodIssues.appendChild(li);
+                } else if (item.type === "warning") {
+                    warningIssues.appendChild(li);
+                } else {
+                    badIssues.appendChild(li);
+                }
+            });
+        }
 
-    // Title
-    if (!data.title) {
-        feedback.push({ type: 'bad', title: 'Title Missing', description: 'The title tag is essential for SEO and should be present on every page.', recommendation: 'Add a unique and descriptive title tag to your page.' });
-    } else if (data.title.length > 60) {
-        feedback.push({ type: 'warning', title: 'Title Too Long', description: 'Your title is over 60 characters. It may be truncated in search results.', recommendation: 'Keep your title tag under 60 characters.' });
-    } else {
-        feedback.push({ type: 'good', title: 'Title Length', description: 'Your title tag is a good length.' });
-    }
+        function renderScoreChart(score) {
+            const ctx = document.getElementById("seo-score-chart").getContext("2d");
 
-    // Description
-    if (!data.description) {
-        feedback.push({ type: 'bad', title: 'Meta Description Missing', description: 'The meta description provides a summary of your page in search results.', recommendation: 'Add a unique meta description, ideally between 50-160 characters.' });
-    } else if (data.description.length > 160) {
-        feedback.push({ type: 'warning', title: 'Meta Description Too Long', description: 'Your meta description is over 160 characters and may be cut off.', recommendation: 'Keep your meta description under 160 characters.' });
-    } else {
-        feedback.push({ type: 'good', title: 'Meta Description Length', description: 'Your meta description is a good length.' });
-    }
+            // Destroy existing chart if it exists
+            if (seoScoreChartInstance) {
+                seoScoreChartInstance.destroy();
+            }
 
-    // Favicon
-    if (data.favicon) {
-        feedback.push({ type: 'good', title: 'Favicon Present', description: 'A favicon helps with brand recognition in browser tabs and bookmarks.' });
-    } else {
-        feedback.push({ type: 'warning', title: 'Favicon Missing', description: 'A favicon is missing. It helps with brand recognition.', recommendation: 'Add a favicon to your site.' });
-    }
+            const scoreColor = Utils.getScoreColor(score);
 
-    // Headings
-    if (data.h1 === 1) {
-        feedback.push({ type: 'good', title: 'Single H1 Tag', description: 'You have one H1 tag, which is great for defining the main topic of your page.' });
-    } else {
-        feedback.push({ type: 'bad', title: 'H1 Tag Issue', description: `You have ${data.h1} H1 tags. Each page should have exactly one H1 tag.`, recommendation: 'Ensure there is one and only one H1 tag on the page.' });
-    }
+            seoScoreChartInstance = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    datasets: [
+                        {
+                            data: [score, 100 - score],
+                            backgroundColor: [scoreColor, "#e0e0e0"],
+                            borderWidth: 0,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "80%",
+                    plugins: {
+                        tooltip: {
+                            enabled: false,
+                        },
+                        legend: {
+                            display: false,
+                        },
+                    },
+                    elements: {
+                        arc: {
+                            borderWidth: 0,
+                        },
+                    },
+                    animation: {
+                        animateRotate: true,
+                        animateScale: true,
+                    },
+                },
+                plugins: [
+                    {
+                        id: "textCenter",
+                        beforeDraw: function (chart) {
+                            const width = chart.width;
+                            const height = chart.height;
+                            const ctx = chart.ctx;
 
-    // Alt Tags
-    if (data.alt_tags.without_alt > 0) {
-        feedback.push({ type: 'warning', title: 'Missing Alt Tags', description: `You have ${data.alt_tags.without_alt} images missing alt tags. Alt tags are important for accessibility and image SEO.`, recommendation: 'Add descriptive alt tags to all your images.' });
-    } else {
-        feedback.push({ type: 'good', title: 'Alt Tags', description: 'All your images have alt tags.' });
-    }
+                            ctx.restore();
+                            const fontSize = (height / 114).toFixed(2);
+                            ctx.font = `bold ${fontSize}em sans-serif`;
+                            ctx.textBaseline = "middle";
 
-    // Canonical URL
-    if (data.canonical) {
-        feedback.push({ type: 'good', title: 'Canonical URL', description: 'You have a canonical URL, which helps prevent duplicate content issues.' });
-    } else {
-        feedback.push({ type: 'warning', title: 'Canonical URL Missing', description: 'A canonical URL is recommended to specify the preferred version of a page.', recommendation: 'Add a rel="canonical" link tag to your page.' });
-    }
+                            const text = `${score}%`;
+                            const textX = Math.round((width - ctx.measureText(text).width) / 2);
+                            const textY = height / 2;
 
-    // Viewport
-    if (data.viewport) {
-        feedback.push({ type: 'good', title: 'Mobile Viewport', description: 'You have a viewport meta tag, which is essential for mobile-friendliness.' });
-    } else {
-        feedback.push({ type: 'bad', title: 'Mobile Viewport Missing', description: 'The viewport meta tag is missing. Your site may not render correctly on mobile devices.', recommendation: 'Add a viewport meta tag to your page.' });
-    }
+                            ctx.fillStyle = "#333";
+                            ctx.fillText(text, textX, textY);
+                            ctx.save();
+                        },
+                    },
+                ],
+            });
+        }
 
-    return feedback;
-}
+        function createTabs() {
+            const nav = document.createElement("div");
+            nav.className = "tabs";
 
-function renderChart(data) {
-    const feedback = getSeoFeedback(data);
-    const chartData = {
-        good: feedback.filter(item => item.type === 'good').length,
-        warning: feedback.filter(item => item.type === 'warning').length,
-        bad: feedback.filter(item => item.type === 'bad').length,
-    };
+            const contentContainer = document.createElement("div");
+            contentContainer.className = "tab-content";
 
-    const summaryText = document.getElementById('summary-text');
-    summaryText.innerHTML = `
-        <h3>Summary</h3>
-        <p><span class="good-dot"></span><strong>Good:</strong> ${chartData.good} checks passed.</p>
-        <p><span class="warning-dot"></span><strong>Warning:</strong> ${chartData.warning} items to review.</p>
-        <p><span class="bad-dot"></span><strong>Bad:</strong> ${chartData.bad} critical issues found.</p>
-    `;
+            const tabs = {
+                nav,
+                contentContainer,
+                google: createTab("Google Preview", nav, contentContainer),
+                social: createTab("Social Preview", nav, contentContainer),
+                feedback: createTab("Feedback", nav, contentContainer),
+                properties: createTab("Properties", nav, contentContainer),
+            };
 
-    const ctx = document.getElementById('seo-chart').getContext('2d');
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Good', 'Warning', 'Bad'],
-            datasets: [{
-                data: [chartData.good, chartData.warning, chartData.bad],
-                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
-            }],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            legend: {
-                position: 'bottom',
-            },
-        },
-    });
-}
+            return tabs;
+        }
 
-function renderError(message) {
-    resultsContainer.innerHTML = `<p class="error">Error: ${message}</p>`;
-}
+        function createPropertiesContent(data) {
+            const container = Utils.createElement("div", "properties-table");
+
+            const properties = [
+                {
+                    name: "Title",
+                    value: data.title,
+                    description: "The title of the page, displayed in browser tabs and search results.",
+                },
+                {
+                    name: "Description",
+                    value: data.description,
+                    description: "A brief summary of the page content, often shown in search results.",
+                },
+                {
+                    name: "Favicon",
+                    value: data.favicon,
+                    description: "The small icon displayed in browser tabs and bookmarks.",
+                },
+                {
+                    name: "Open Graph Title",
+                    value: data.ogTitle,
+                    description: "The title used when sharing the page on social media platforms like Facebook.",
+                },
+                {
+                    name: "Open Graph Description",
+                    value: data.ogDescription,
+                    description: "The description used when sharing the page on social media.",
+                },
+                {
+                    name: "Open Graph Image",
+                    value: data.ogImage,
+                    description: "The image displayed when sharing the page on social media.",
+                },
+                {
+                    name: "Twitter Card",
+                    value: data.twitterCard,
+                    description: "The type of Twitter card to use (e.g., summary, summary_large_image).",
+                },
+                {
+                    name: "Twitter Title",
+                    value: data.twitterTitle,
+                    description: "The title used when sharing the page on Twitter.",
+                },
+                {
+                    name: "Twitter Description",
+                    value: data.twitterDescription,
+                    description: "The description used when sharing the page on Twitter.",
+                },
+                {
+                    name: "Twitter Image",
+                    value: data.twitterImage,
+                    description: "The image displayed when sharing the page on Twitter.",
+                },
+                {
+                    name: "H1 Tags",
+                    value: data.h1,
+                    description: "The number of H1 heading tags on the page. Ideally, there should be only one.",
+                },
+                {
+                    name: "Images with Alt",
+                    value: data.alt_tags?.with_alt,
+                    description:
+                        "The number of images with descriptive alt attributes, important for accessibility and SEO.",
+                },
+                {
+                    name: "Images without Alt",
+                    value: data.alt_tags?.without_alt,
+                    description:
+                        "The number of images missing alt attributes. These should be added for accessibility and SEO.",
+                },
+                {
+                    name: "Canonical URL",
+                    value: data.canonical,
+                    description:
+                        "Specifies the preferred version of a web page to search engines, preventing duplicate content issues.",
+                },
+                {
+                    name: "Viewport Meta Tag",
+                    value: data.viewport,
+                    description: "Ensures the page is responsive and renders correctly across different devices.",
+                },
+            ];
+
+            properties.forEach((prop) => {
+                const row = Utils.createElement("div", "property-row");
+
+                const nameSpan = Utils.createElement("span", "property-name", prop.name);
+                row.appendChild(nameSpan);
+
+                const valueSpan = Utils.createElement("span", "property-value");
+
+                // Handle different value types
+                if (Utils.isEmpty(prop.value)) {
+                    valueSpan.textContent = "";
+                    valueSpan.classList.add("empty-value");
+                } else if (typeof prop.value === "number") {
+                    valueSpan.textContent = prop.value.toString();
+                } else if (typeof prop.value === "string") {
+                    // Show full value without truncation
+                    valueSpan.textContent = prop.value;
+                    // Add title for long values for better accessibility
+                    if (prop.value.length > 100) {
+                        valueSpan.title = prop.value;
+                    }
+                } else {
+                    valueSpan.textContent = prop.value.toString();
+                }
+
+                row.appendChild(valueSpan);
+
+                const tooltipSpan = Utils.createElement("span", "property-tooltip", prop.description);
+                row.appendChild(tooltipSpan);
+
+                container.appendChild(row);
+            });
+
+            return container;
+        }
+
+        function createTab(name, nav, contentContainer) {
+            const button = document.createElement("button");
+            button.textContent = name;
+            button.setAttribute("data-tab", name.toLowerCase().replace(" ", "-"));
+            button.setAttribute("role", "tab");
+            button.setAttribute("aria-selected", "false");
+            nav.appendChild(button);
+
+            const content = document.createElement("div");
+            content.id = name.toLowerCase().replace(" ", "-");
+            content.setAttribute("role", "tabpanel");
+            content.setAttribute("aria-labelledby", button.id);
+            contentContainer.appendChild(content);
+
+            button.addEventListener("click", () => {
+                activateTab(button, content, nav, contentContainer);
+            });
+
+            button.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    activateTab(button, content, nav, contentContainer);
+                }
+            });
+
+            return content;
+        }
+
+        function activateTab(button, content, nav, contentContainer) {
+            // Remove active state from all tabs
+            nav.querySelectorAll("button").forEach((btn) => {
+                btn.classList.remove("active");
+                btn.setAttribute("aria-selected", "false");
+            });
+            contentContainer.querySelectorAll("div").forEach((c) => {
+                c.classList.remove("active");
+            });
+
+            // Activate selected tab
+            button.classList.add("active");
+            button.setAttribute("aria-selected", "true");
+            content.classList.add("active");
+        }
+
+        function createFeedbackContent(data) {
+            const container = Utils.createElement("div", "feedback-container");
+            const feedback = SeoFeedback.generateSeoFeedback(data);
+
+            feedback.forEach((item) => {
+                const card = Utils.createElement("div", `feedback-card ${item.type}`);
+
+                const title = Utils.createElement("h4", "", item.title);
+                card.appendChild(title);
+
+                const description = Utils.createElement("p", "", item.description);
+                card.appendChild(description);
+
+                if (item.recommendation) {
+                    const recommendation = Utils.createElement(
+                        "p",
+                        "recommendation",
+                        `Recommendation: ${item.recommendation}`
+                    );
+                    card.appendChild(recommendation);
+                }
+
+                container.appendChild(card);
+            });
+
+            return container;
+        }
+
+        function createGooglePreviewContent(data, url) {
+            const container = document.createElement("div");
+            container.className = "preview google-preview";
+
+            if (data.favicon) {
+                const favicon = document.createElement("img");
+                favicon.src = data.favicon;
+                favicon.className = "favicon";
+                favicon.alt = "Favicon";
+                favicon.onerror = function () {
+                    this.style.display = "none";
+                };
+                container.appendChild(favicon);
+            }
+
+            const title = document.createElement("p");
+            title.className = "title";
+            title.textContent = data.title || "No Title";
+            container.appendChild(title);
+
+            const link = document.createElement("p");
+            link.className = "link";
+            link.textContent = url;
+            container.appendChild(link);
+
+            const description = document.createElement("p");
+            description.className = "description";
+            description.textContent = data.description || "No Description";
+            container.appendChild(description);
+
+            return container;
+        }
+
+        function createSocialPreviewContent(data) {
+            const container = document.createElement("div");
+            container.className = "preview social-preview";
+
+            const image = document.createElement("div");
+            image.className = "image";
+
+            if (data.ogImage) {
+                image.style.backgroundImage = `url(${data.ogImage})`;
+                image.style.backgroundSize = "cover";
+                image.style.backgroundPosition = "center";
+                image.style.backgroundRepeat = "no-repeat";
+            } else {
+                image.style.backgroundColor = "#f0f0f0";
+                image.style.display = "flex";
+                image.style.alignItems = "center";
+                image.style.justifyContent = "center";
+                image.style.color = "#666";
+                image.textContent = "No image";
+            }
+
+            container.appendChild(image);
+
+            const content = document.createElement("div");
+            content.className = "content";
+
+            const title = document.createElement("p");
+            title.className = "title";
+            title.textContent = data.ogTitle || data.title || "No Title";
+            content.appendChild(title);
+
+            const description = document.createElement("p");
+            description.className = "description";
+            description.textContent = data.ogDescription || data.description || "No Description";
+            content.appendChild(description);
+
+            container.appendChild(content);
+            return container;
+        }
+
+        function renderError(message) {
+            showError(message);
+        }
+    } // End of setupApp
+}); // End of DOMContentLoaded
