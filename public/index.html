@@ -14,8 +14,28 @@
             <button type="submit">Scan</button>
         </form>
         <div id="loader"></div>
+        <div id="summary-container" style="display: none;">
+            <div id="score-chart-container">
+                <canvas id="seo-score-chart"></canvas>
+            </div>
+            <div id="issue-cards">
+                <div class="card good">
+                    <h4>Good</h4>
+                    <ul id="good-issues"></ul>
+                </div>
+                <div class="card warning">
+                    <h4>Warning</h4>
+                    <ul id="warning-issues"></ul>
+                </div>
+                <div class="card bad">
+                    <h4>Bad</h4>
+                    <ul id="bad-issues"></ul>
+                </div>
+            </div>
+        </div>
         <div id="results-container"></div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

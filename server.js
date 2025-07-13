@@ -41,6 +41,14 @@ app.get('/api/seo-data', async (req, res) => {
             twitterTitle: $('meta[name="twitter:title"]').attr('content'),
             twitterDescription: $('meta[name="twitter:description"]').attr('content'),
             twitterImage: $('meta[name="twitter:image"]').attr('content'),
+            h1: $('h1').length,
+            h2: $('h2').length,
+            alt_tags: {
+                with_alt: $('img[alt][alt!=""]').length,
+                without_alt: $('img:not([alt]), img[alt=""]').length,
+            },
+            canonical: $('link[rel="canonical"]').attr('href'),
+            viewport: $('meta[name="viewport"]').attr('content'),
         };
 
         res.json(seoData);

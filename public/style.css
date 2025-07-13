@@ -116,6 +116,104 @@ button[type="submit"]:hover {
     border-bottom: 1px solid #eee;
 }
 
+.feedback-card {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border-left-width: 5px;
+    border-left-style: solid;
+    border-radius: 4px;
+}
+
+.feedback-card.good {
+    border-left-color: #28a745;
+    background-color: #e9f7ef;
+}
+
+.feedback-card.warning {
+    border-left-color: #ffc107;
+    background-color: #fff8e1;
+}
+
+.feedback-card.bad {
+    border-left-color: #dc3545;
+    background-color: #fbeae5;
+}
+
+.feedback-card h4 {
+    margin-bottom: 0.5rem;
+}
+
+.feedback-card .recommendation {
+    margin-top: 0.5rem;
+    font-style: italic;
+}
+
+#score-chart-container {
+    width: 150px;
+    height: 150px;
+    position: relative;
+    margin: 0 auto 1rem auto;
+}
+
+#summary-container {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    margin: 2rem auto;
+    flex-wrap: wrap;
+}
+
+#issue-cards {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    flex: 2;
+}
+
+.card {
+    padding: 1rem;
+    border-radius: 8px;
+    flex: 1;
+    min-width: 200px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.card.good { background-color: #e9f7ef; border: 1px solid #28a745; }
+.card.warning { background-color: #fff8e1; border: 1px solid #ffc107; }
+.card.bad { background-color: #fbeae5; border: 1px solid #dc3545; }
+
+.card h4 {
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.card ul {
+    list-style: none;
+    padding: 0;
+}
+
+.card ul li {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+}
+
+.card ul li:last-child {
+    border-bottom: none;
+}
+
+.card ul li::before {
+    content: '\2022'; /* Unicode for a bullet point */
+    margin-right: 0.5rem;
+    font-weight: bold;
+}
+
+.card.good ul li::before { color: #28a745; }
+.card.warning ul li::before { color: #ffc107; }
+.card.bad ul li::before { color: #dc3545; }
+
 .preview {
     padding: 1.5rem;
     border: 1px solid #e0e0e0;
